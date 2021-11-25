@@ -204,3 +204,8 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/venv,windows,visualstudiocode,flask
+
+*.mp3
+*.wav
+*.whl
+spleeter

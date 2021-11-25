@@ -12,6 +12,7 @@
 
 from flask import Flask, request, jsonify
 import lyricparsing
+import audio_cut
 import base64
 from mutagen.mp3 import MP3
 app = Flask(__name__)
@@ -20,7 +21,7 @@ app = Flask(__name__)
 def getSong():
     #json 데이터를 받아옴
     song = request.get_json()
-    song_base64 = song['song_base64']
+    song_base64 = song['base64']
     song_name = song['song_name']
 
     # =-------------------------------------------------------------------------
@@ -35,14 +36,29 @@ def getSong():
     audio = MP3("song.mp3")
     song_length =  audio.info.length
 
-    #data = lyricparsing.lyric_parsing(song_name, song_length)
-    data = lyricparsing.lyric_parsing("akmu give love", 230)
+    data = lyricparsing.lyric_parsing(song_name, song_length)
+    #data = lyricparsing.lyric_parsing("akmu give love", 230)
     
-    return jsonify(data)# 받아온 데이터를 다시 전송
+    return jsonify(data)
  
-@app.route('/environments/<language>')
-def environments(language):
-    return jsonify({"language":language})
+@app.route('/new_song', methods = ['POST'])
+def editSong():
+    song = request.get_json()
+    member_name = song['name']
+    member_time = song['time']
+    target = song['target']
+    base64 = song['base64']
+
+    # 음원 자르고 엠얼 제거
+    f = open("base64.txt","w")
+    f.write(base64)
+    f.close()
+
+    audio_cut.audio_cut("base64.txt",member_time)
+
+
+
+    return jsonify()
  
  
 if __name__ == "__main__":
