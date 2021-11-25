@@ -1,8 +1,23 @@
 #We'll be using TF 2.1 and torchaudio
+from __future__ import print_function, division
+
+# try:
+#   %tensorflow_version 2.x
+# except Exception:
+#   pass
 import tensorflow as tf
+
+# !pip install soundfile                    #to save wav files
+# !pip install --no-deps torchaudio==0.5.0
+
+#Connecting Drive to save model checkpoints during training and to use custom data, uncomment if needed
+
+import os
+# from google.colab import drive
+# drive.mount('/content/drive')
 #Imports
 
-from __future__ import print_function, division
+
 from glob import glob
 import scipy
 import soundfile as sf
@@ -27,17 +42,9 @@ from librosa.feature import melspectrogram
 import os
 import time
 import IPython
-
-#Adding Spectral Normalization to convolutional layers
-
-from tensorflow.python.keras.utils import conv_utils
-from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import math_ops
-from tensorflow.python.ops import sparse_ops
-from tensorflow.python.ops import gen_math_ops
-from tensorflow.python.ops import standard_ops
-from tensorflow.python.eager import context
-from tensorflow.python.framework import tensor_shape
+import numpy as np
+import pytsmod as tsm
+import soundfile as sf
 
 #Hyperparameters
 
@@ -69,7 +76,8 @@ import math
 import heapq
 from torchaudio.transforms import MelScale, Spectrogram
 
-torch.set_default_tensor_type('torch.cuda.FloatTensor')
+
+# torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
 specobj = Spectrogram(n_fft=6*hop, win_length=6*hop, hop_length=hop, pad=0, power=2, normalized=True)
 specfunc = specobj.forward
@@ -140,6 +148,102 @@ def deprep(S):
   S = librosa.db_to_power(S)
   wv = GRAD(np.expand_dims(S,0), melspecfunc, maxiter=2000, evaiter=10, tol=1e-8)
   return np.array(np.squeeze(wv))
+
+#Helper functions
+
+#Generate spectrograms from waveform array
+def tospec(data):
+  specs=np.empty(data.shape[0], dtype=object)
+  for i in range(data.shape[0]):
+    x = data[i]
+    S=prep(x)
+    S = np.array(S, dtype=np.float32)
+    specs[i]=np.expand_dims(S, -1)
+  print(specs.shape)
+  return specs
+
+#Generate multiple spectrograms with a determined length from single wav file
+def tospeclong(path, length=4*16000):
+  x, sr = librosa.load(path,sr=16000)
+  x,_ = librosa.effects.trim(x)
+  loudls = librosa.effects.split(x, top_db=50)
+  xls = np.array([])
+  for interv in loudls:
+    xls = np.concatenate((xls,x[interv[0]:interv[1]]))
+  x = xls
+  num = x.shape[0]//length
+  specs=np.empty(num, dtype=object)
+  for i in range(num-1):
+    a = x[i*length:(i+1)*length]
+    S = prep(a)
+    S = np.array(S, dtype=np.float32)
+    try:
+      sh = S.shape
+      specs[i]=S
+    except AttributeError:
+      print('spectrogram failed')
+  print(specs.shape)
+  return specs
+
+#Waveform array from path of folder containing wav files
+def audio_array(path):
+  ls = glob(f'{path}/*.wav')
+  adata = []
+  for i in range(len(ls)):
+    x, sr = tf.audio.decode_wav(tf.io.read_file(ls[i]), 1)
+    x = np.array(x, dtype=np.float32)
+    adata.append(x)
+  return np.array(adata)
+
+#Concatenate spectrograms in array along the time axis
+def testass(a):
+  but=False
+  con = np.array([])
+  nim = a.shape[0]
+  for i in range(nim):
+    im = a[i]
+    im = np.squeeze(im)
+    if not but:
+      con=im
+      but=True
+    else:
+      con = np.concatenate((con,im), axis=1)
+  return np.squeeze(con)
+
+#Split spectrograms in chunks with equal size
+def splitcut(data):
+  ls = []
+  mini = 0
+  minifinal = 10*shape                                                              #max spectrogram length
+  for i in range(data.shape[0]-1):
+    if data[i].shape[1]<=data[i+1].shape[1]:
+      mini = data[i].shape[1]
+    else:
+      mini = data[i+1].shape[1]
+    if mini>=3*shape and mini<minifinal:
+      minifinal = mini
+  for i in range(data.shape[0]):
+    x = data[i]
+    if x.shape[1]>=3*shape:
+      for n in range(x.shape[1]//minifinal):
+        ls.append(x[:,n*minifinal:n*minifinal+minifinal,:])
+      ls.append(x[:,-minifinal:,:])
+  return np.array(ls)
+
+@tf.function
+def proc(x):
+  return tf.image.random_crop(x, size=[hop, 3*shape, 1])
+
+#Adding Spectral Normalization to convolutional layers
+
+from tensorflow.python.keras.utils import conv_utils
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import sparse_ops
+from tensorflow.python.ops import gen_math_ops
+from tensorflow.python.ops import standard_ops
+from tensorflow.python.eager import context
+from tensorflow.python.framework import tensor_shape
 
 def l2normalize(v, eps=1e-12):
     return v / (tf.norm(v) + eps)
@@ -335,8 +439,6 @@ class DenseSN(Dense):
           return self.activation(outputs)
         return outputs
 
-
-
 #Networks Architecture
 
 init = tf.keras.initializers.he_uniform()
@@ -435,6 +537,83 @@ def build():
   critic = build_critic((hop,3*shape,1))                                          #the discriminator accepts as input spectrograms of triple the width of those generated by the generator
   return gen,critic,siam
 
+#Generate a random batch to display current training results
+def testgena():
+  sw = True
+  while sw:
+    a = np.random.choice(aspec)
+    if a.shape[1]//shape!=1:
+      sw=False
+  dsa = []
+  if a.shape[1]//shape>6:
+    num=6
+  else:
+    num=a.shape[1]//shape
+  rn = np.random.randint(a.shape[1]-(num*shape))
+  for i in range(num):
+    im = a[:,rn+(i*shape):rn+(i*shape)+shape]
+    im = np.reshape(im, (im.shape[0],im.shape[1],1))
+    dsa.append(im)
+  return np.array(dsa, dtype=np.float32)
+
+#Show results mid-training
+def save_test_image_full(path):
+  a = testgena()
+  print(a.shape)
+  ab = gen(a, training=False)
+  ab = testass(ab)
+  a = testass(a)
+  abwv = deprep(ab)
+  awv = deprep(a)
+  sf.write(path+'/new_file.wav', abwv, sr)
+  IPython.display.display(IPython.display.Audio(np.squeeze(abwv), rate=sr))
+  IPython.display.display(IPython.display.Audio(np.squeeze(awv), rate=sr))
+  fig, axs = plt.subplots(ncols=2)
+  axs[0].imshow(np.flip(a, -2), cmap=None)
+  axs[0].axis('off')
+  axs[0].set_title('Source')
+  axs[1].imshow(np.flip(ab, -2), cmap=None)
+  axs[1].axis('off')
+  axs[1].set_title('Generated')
+  plt.show()
+
+#Save in training loop
+def save_end(epoch,gloss,closs,mloss,n_save=3,save_path='../content/'):                 #use custom save_path (i.e. Drive '../content/drive/My Drive/')
+  if epoch % n_save == 0:
+    print('Saving...')
+    path = f'{save_path}/MELGANVC-{str(gloss)[:9]}-{str(closs)[:9]}-{str(mloss)[:9]}'
+    os.mkdir(path)
+    gen.save_weights(path+'/gen.h5')
+    critic.save_weights(path+'/critic.h5')
+    siam.save_weights(path+'/siam.h5')
+    save_test_image_full(path)
+
+#Losses
+
+def mae(x,y):
+  return tf.reduce_mean(tf.abs(x-y))
+
+def mse(x,y):
+  return tf.reduce_mean((x-y)**2)
+
+def loss_travel(sa,sab,sa1,sab1):
+  l1 = tf.reduce_mean(((sa-sa1) - (sab-sab1))**2)
+  l2 = tf.reduce_mean(tf.reduce_sum(-(tf.nn.l2_normalize(sa-sa1, axis=[-1]) * tf.nn.l2_normalize(sab-sab1, axis=[-1])), axis=-1))
+  return l1+l2
+
+def loss_siamese(sa,sa1):
+  logits = tf.sqrt(tf.reduce_sum((sa-sa1)**2, axis=-1, keepdims=True))
+  return tf.reduce_mean(tf.square(tf.maximum((delta - logits), 0)))
+
+def d_loss_f(fake):
+  return tf.reduce_mean(tf.maximum(1 + fake, 0))
+
+def d_loss_r(real):
+  return tf.reduce_mean(tf.maximum(1 - real, 0))
+
+def g_loss_f(fake):
+  return tf.reduce_mean(- fake)
+
 
 #Get models and optimizers
 def get_networks(shape, load_model=False, path=None):
@@ -448,6 +627,88 @@ def get_networks(shape, load_model=False, path=None):
   opt_disc = Adam(0.0001, 0.5)
 
   return gen,critic,siam, [opt_gen,opt_disc]
+
+#Set learning rate
+def update_lr(lr):
+  opt_gen.learning_rate = lr
+  opt_disc.learning_rate = lr
+
+
+#Training Functions
+
+#Train Generator, Siamese and Critic
+@tf.function
+def train_all(a,b):
+  #splitting spectrogram in 3 parts
+  aa,aa2,aa3 = extract_image(a) 
+  bb,bb2,bb3 = extract_image(b)
+
+  with tf.GradientTape() as tape_gen, tf.GradientTape() as tape_disc:
+
+    #translating A to B
+    fab = gen(aa, training=True)
+    fab2 = gen(aa2, training=True)
+    fab3 = gen(aa3, training=True)
+    #identity mapping B to B                                                        COMMENT THESE 3 LINES IF THE IDENTITY LOSS TERM IS NOT NEEDED
+    fid = gen(bb, training=True) 
+    fid2 = gen(bb2, training=True)
+    fid3 = gen(bb3, training=True)
+    #concatenate/assemble converted spectrograms
+    fabtot = assemble_image([fab,fab2,fab3])
+
+    #feed concatenated spectrograms to critic
+    cab = critic(fabtot, training=True)
+    cb = critic(b, training=True)
+    #feed 2 pairs (A,G(A)) extracted spectrograms to Siamese
+    sab = siam(fab, training=True)
+    sab2 = siam(fab3, training=True)
+    sa = siam(aa, training=True)
+    sa2 = siam(aa3, training=True)
+
+    #identity mapping loss
+    loss_id = (mae(bb,fid)+mae(bb2,fid2)+mae(bb3,fid3))/3.                         #loss_id = 0. IF THE IDENTITY LOSS TERM IS NOT NEEDED
+    #travel loss
+    loss_m = loss_travel(sa,sab,sa2,sab2)+loss_siamese(sa,sa2)
+    #generator and critic losses
+    loss_g = g_loss_f(cab)
+    loss_dr = d_loss_r(cb)
+    loss_df = d_loss_f(cab)
+    loss_d = (loss_dr+loss_df)/2.
+    #generator+siamese total loss
+    lossgtot = loss_g+10.*loss_m+0.5*loss_id                                       #CHANGE LOSS WEIGHTS HERE  (COMMENT OUT +w*loss_id IF THE IDENTITY LOSS TERM IS NOT NEEDED)
+  
+  #computing and applying gradients
+  grad_gen = tape_gen.gradient(lossgtot, gen.trainable_variables+siam.trainable_variables)
+  opt_gen.apply_gradients(zip(grad_gen, gen.trainable_variables+siam.trainable_variables))
+
+  grad_disc = tape_disc.gradient(loss_d, critic.trainable_variables)
+  opt_disc.apply_gradients(zip(grad_disc, critic.trainable_variables))
+  
+  return loss_dr,loss_df,loss_g,loss_id
+
+#Train Critic only
+@tf.function
+def train_d(a,b):
+  aa,aa2,aa3 = extract_image(a)
+  with tf.GradientTape() as tape_disc:
+
+    fab = gen(aa, training=True)
+    fab2 = gen(aa2, training=True)
+    fab3 = gen(aa3, training=True)
+    fabtot = assemble_image([fab,fab2,fab3])
+
+    cab = critic(fabtot, training=True)
+    cb = critic(b, training=True)
+
+    loss_dr = d_loss_r(cb)
+    loss_df = d_loss_f(cab)
+
+    loss_d = (loss_dr+loss_df)/2.
+  
+  grad_disc = tape_disc.gradient(loss_d, critic.trainable_variables)
+  opt_disc.apply_gradients(zip(grad_disc, critic.trainable_variables))
+
+  return loss_dr,loss_df
 
 #After Training, use these functions to convert data with the generator and save the results
 
@@ -512,22 +773,59 @@ def towave(spec, name, path='../content/', show=False):
     plt.show()
   return abwv
 
-
-gen,critic,siam, [opt_gen,opt_disc] = get_networks(shape, load_model=True, path='여기가 모델 경로')
-#gen,critic,siam, [opt_gen,opt_disc] = get_networks(shape, load_model=True, path='../content/drive/MyDrive/male_male_checkpoint/MELGANVC-0.5553046-0.5153603-0.1086449/')
+model_path = "C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\MELGANVC-0.5553046-0.5153603-0.1086449"
+gen, critic, siam, [opt_gen, opt_disc] = get_networks(shape, load_model=True, path=model_path)
 
 #Wav to wav conversion
+def voice_conversion(target):
+    if target == "Man":
+        model_path = "C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\MELGANVC-0.5553046-0.5153603-0.1086449"
+    # gen,critic,siam, [opt_gen,opt_disc] = get_networks(shape, load_model=True, path='../content/drive/MyDrive/male_male_checkpoint/MELGANVC-0.5553046-0.5153603-0.1086449/')
+    else:
+        model_path = "C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\MELGANVC-0.5380363-0.5506637-0.0765312"
+    gen, critic, siam, [opt_gen, opt_disc] = get_networks(shape, load_model=True, path=model_path)
+    # Wav to wav conversion
+    vocal_path = "C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\output\\soundtrack1\\vocals.wav"
+    wv, sr = librosa.load(vocal_path, sr=24000)  # Load waveform
 
-#wv, sr = librosa.load('../content/drive/MyDrive/male_male_checkpoint/victory.wav', sr=18000)  #Load waveform
-wv, sr = librosa.load('input으로 넣을 원본 목소리 파일.wav(경로 포함)', sr=18000)  #Load waveform
+    print(wv.shape)
+    speca = prep(wv)                                                    #Waveform to Spectrogram
+    
+    abwv = towave(speca, name='voice_conversion_result_1', path='C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\voice_conversion_result')          
+    
+    song_length1 = librosa.get_duration(filename='./voice_conversion_result/voice_conversion_result_1/AB.wav')
+    #song_length2 = get_duration("soundtrack1-vocals.wav")
+    song_length2 = librosa.get_duration(filename="./output/soundtrack1/vocals.wav")
+    print(song_length2, song_length1)
+    squeeze = song_length1/song_length2
 
-print(wv.shape)
-speca = prep(wv)                                                    #Waveform to Spectrogram
 
-plt.figure(figsize=(50,1))                                          #Show Spectrogram
-plt.imshow(np.flip(speca, axis=0), cmap=None)
-plt.axis('off')
-plt.show()
+    y, sr = librosa.load('./voice_conversion_result/voice_conversion_result_1/AB.wav', sr=24000) #여기에 fitch 바꿀음원파일넣기
+    y_third = librosa.effects.pitch_shift(y, sr, n_steps=-4) #-4키로 바꾸기
+    y_third2 = librosa.effects.time_stretch(y_third, squeeze) #20초->40초 : 20/40, 23초 -> 20초 : 23/20
 
-abwv = towave(speca, name='FILENAME1', path='만들어진 변환파일 저장경로')           #Convert and save wav
-#abwv = towave(speca, name='FILENAME1', path='../content/')           #Convert and save wav
+    speca = prep(y_third2)                                                    #Waveform to Spectrogram
+
+    abwv = towave2(speca, name='voice_conversion_pitch_right', path='C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\voice_conversion_result')           #Convert and save wav
+
+def towave2(spec, name, path='../content/', show=False):
+  specarr = chopspec(spec)
+  print(specarr.shape)
+  a = specarr
+  print('Generating...')
+  print('Assembling and Converting...')
+  a = specass(a,spec)
+  awv = deprep(a)
+  print('Saving...')
+  pathfin = f'{path}/{name}'
+  os.mkdir(pathfin)
+  sf.write(pathfin+'/shift_fitch.wav', awv, sr)
+  print('Saved WAV!')
+  IPython.display.display(IPython.display.Audio(np.squeeze(awv), rate=sr))
+  # if show:
+  #   fig, axs = plt.subplots(ncols=2)
+  #   axs[0].imshow(np.flip(a, -2), cmap=None)
+  #   axs[0].axis('off')
+  #   axs[0].set_title('Source')
+  #   plt.show()
+  return awv

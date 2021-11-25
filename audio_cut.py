@@ -104,4 +104,4 @@ def audio_cut(base_mp3_file, member_part):
 
       mrs = AudioSegment.from_file("output/"+file_name+"/accompaniment.wav")
       extract.export( file_name+'-mrs.wav', format="wav")
-
+  return timetrack

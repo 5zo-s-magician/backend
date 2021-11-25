@@ -13,8 +13,20 @@
 from flask import Flask, request, jsonify
 import lyricparsing
 import audio_cut
+import voice_conversion
+import final_mp3
 import base64
 from mutagen.mp3 import MP3
+
+import wave
+import numpy as np
+import pytsmod as tsm
+import soundfile as sf  # you can use other audio load packages.
+import os
+from pydub import AudioSegment
+import contextlib
+import librosa
+
 app = Flask(__name__)
  
 @app.route('/', methods = ['POST'])
@@ -54,12 +66,18 @@ def editSong():
     f.write(base64)
     f.close()
 
-    audio_cut.audio_cut("base64.txt",member_time)
 
 
+    #timetrack = audio_cut.audio_cut("base64.txt",member_time)
 
-    return jsonify()
- 
- 
+    # voice conversion
+    voice_conversion.voice_conversion(target)
+
+    # 다시 취합
+    #final_mp3.final_mp3(timetrack)
+
+    return jsonify({})
+
 if __name__ == "__main__":
     app.run(debug=True)
+
