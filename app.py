@@ -56,7 +56,6 @@ def getSong():
 @app.route('/new_song', methods = ['POST'])
 def editSong():
     song = request.get_json()
-    member_name = song['name']
     member_time = song['time']
     target = song['target']
     base64 = song['base64']
