@@ -84,7 +84,8 @@ def audio_cut(base_mp3_file, member_part):
       str1 = "soundtrack"+str(i)+".mp3"
       Audio(str1)
       os.system("python -m spleeter separate -h")
-      os.system("python -m spleeter separate -o output/ "+str1)
+      os.system("python -m spleeter separate -o output/"+str1)
+  print("끝")
 
   # 이렇게 하면               output/benatural/vocals.wav
   # 홀수번째 파일에 대해서만  output/benatural/accompaniment.wav 파일 두개 생김

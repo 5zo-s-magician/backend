@@ -68,13 +68,13 @@ def editSong():
 
 
 
-    #timetrack = audio_cut.audio_cut("base64.txt",member_time)
+    timetrack = audio_cut.audio_cut("base64.txt",member_time)
 
     # voice conversion
     voice_conversion.voice_conversion(target)
 
     # 다시 취합
-    #final_mp3.final_mp3(timetrack)
+    final_mp3.final_mp3(timetrack)
 
     return jsonify({})
 

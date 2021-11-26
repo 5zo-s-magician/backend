@@ -34,7 +34,7 @@ def final_mp3(timetrack):
       clips.append(clip)
   
     elif i % 2 == 1:
-      vocals=AudioSegment.from_file("right_voice_conversion.mp3")
+      vocals=AudioSegment.from_file("./voice_conversion_result/voice_conversion_pitch_right/shift_fitch.wav")
       mrs=AudioSegment.from_file(file_name+'-mrs.wav')
       combined = vocals.overlay(mrs)
       #combined.export(file_name_remmr+'-new.mp3',format="mp3")

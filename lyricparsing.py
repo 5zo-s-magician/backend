@@ -221,8 +221,14 @@ def lyric_parsing(wav_title, wav_seconds):
                 print(second_list)
                 print(final_dic)
 
-              if final_dic != {}:
-                return final_dic 
+                if(final_dic != {}):
+                  for k, v in final_dic.items():
+                    index = 0
+                    for left, right in final_dic[k]:
+                      final_dic[k][index] = [final_dic[k][index][0], second_list[second_list.index(final_dic[k][index][1])+1]]
+                      index = index + 1
+                  return final_dic 
+                  
     except Exception as e:
       print(traceback.format_exc())
       pass
