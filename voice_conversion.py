@@ -763,31 +763,32 @@ def towave(spec, name, path='../content/', show=False):
     plt.show()
   return abwv
 
-model_path = "C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\MELGANVC-0.5553046-0.5153603-0.1086449"
+model_path = "./MELGANVC-0.5553046-0.5153603-0.1086449"
 gen, critic, siam, [opt_gen, opt_disc] = get_networks(shape, load_model=True, path=model_path)
 
 #Wav to wav conversion
 def voice_conversion(target):
     if target == "Man":
-        model_path = "C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\MELGANVC-0.5553046-0.5153603-0.1086449"
+        model_path = "./MELGANVC-0.5553046-0.5153603-0.1086449"
     # gen,critic,siam, [opt_gen,opt_disc] = get_networks(shape, load_model=True, path='../content/drive/MyDrive/male_male_checkpoint/MELGANVC-0.5553046-0.5153603-0.1086449/')
     else:
-        model_path = "C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\MELGANVC-0.5380363-0.5506637-0.0765312"
+        model_path = "./MELGANVC-0.5380363-0.5506637-0.0765312"
     gen, critic, siam, [opt_gen, opt_disc] = get_networks(shape, load_model=True, path=model_path)
     # Wav to wav conversion
-    vocal_path = "C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\output\\soundtrack1\\vocals.wav"
+    vocal_path = "./output/soundtrack1/vocals.wav"
     wv, sr = librosa.core.load(vocal_path, sr=24000)  # Load waveform
     speca = prep(wv)                                                    #Waveform to Spectrogram
-    abwv = towave(speca, name='voice_conversion_result_1', path='C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\voice_conversion_result')          
+    abwv = towave(speca, name='voice_conversion_result_1', path='./voice_conversion_result')          
 
 
     song_length1 = librosa.get_duration(filename='./voice_conversion_result/voice_conversion_result_1/AB.wav')
     #song_length2 = get_duration("soundtrack1-vocals.wav")
     org_song_length = librosa.get_duration(filename="./output/soundtrack1/vocals.wav")
 
-    (samplerate,smp)=load_wav("./voice_conversion_result/voice_conversion_result_1/AB.wav")
-    y_third = librosa.effects.pitch_shift(smp, samplerate, n_steps= -4) #-4키로 바꾸기
-    paulstretch(samplerate,y_third, org_song_length/song_length1 ,0.25,"out.wav")
+    # (samplerate,smp)=load_wav("./voice_conversion_result/voice_conversion_result_1/AB.wav")
+    y, sr = librosa.load('./voice_conversion_result/voice_conversion_result_1/AB.wav', sr=24000) #여기에 fitch 바꿀음원파일넣기
+    y_third = librosa.effects.pitch_shift(y, sr, n_steps= -4) #-4키로 바꾸기
+    # paulstretch(samplerate,y_third, org_song_length/song_length1 ,0.25,"out.wav")
 
     # print(song_length2, song_length1)
     #squeeze = song_length1/song_length2
@@ -801,9 +802,9 @@ def voice_conversion(target):
     # y_third2 = librosa.effects.time_stretch(y_third, squeeze) #20초->40초 : 20/40, 23초 -> 20초 : 23/20
     # y_forth = librosa.effects.pitch_shift(y_third2, sr, n_steps=+24) #-4키로 바꾸기
 
-    #speca = prep(y_third)                                                    #Waveform to Spectrogram
+    speca = prep(y_third)                                                    #Waveform to Spectrogram
 
-    #abwv = towave2(speca, name='voice_conversion_pitch_right', path='C:\\Users\\User\\Desktop\\21-2_school\\capstone_project\\Flask_Prac\\voice_conversion_result')           #Convert and save wav
+    abwv = towave2(speca, name='voice_conversion_pitch_right', path='./voice_conversion_result')           #Convert and save wav
 
 def towave2(spec, name, path='../content/', show=False):
   specarr = chopspec(spec)

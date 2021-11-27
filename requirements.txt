@@ -99,7 +99,8 @@ protobuf==3.19.1
 ptyprocess==0.7.0
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
-PyAudio @ file:///C:/Users/User/Desktop/21-2_school/capstone_project/Flask_Prac/PyAudio-0.2.11-cp39-cp39-win_amd64.whl
+PyAudio==0.2.11
+# PyAudio @ file:///C:/Users/User/Desktop/21-2_school/capstone_project/Flask_Prac/PyAudio-0.2.11-cp39-cp39-win_amd64.whl
 pycparser==2.21
 pydub==0.25.1
 Pygments==2.10.0
@@ -146,7 +147,8 @@ toml==0.10.2
 tomli==1.2.2
 tomlkit==0.7.2
 torch==1.10.0+cu113
-torchaudio==0.8.0
+# torchaudio==0.8.0
+torchaudio==0.5.0
 torchvision==0.11.1+cu113
 tqdm==4.62.3
 traitlets==5.1.1
