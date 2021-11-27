@@ -209,3 +209,4 @@ $RECYCLE.BIN/
 # *.wav
 *.whl
 spleeter
+*.pem
