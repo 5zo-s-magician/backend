@@ -740,27 +740,27 @@ def towave(spec, name, path='../content/', show=False):
   print('Generating...')
   ab = gen(a, training=False)
   print('Assembling and Converting...')
-  a = specass(a,spec)
+  # a = specass(a,spec)
   ab = specass(ab,spec)
-  awv = deprep(a)
+  # awv = deprep(a)
   abwv = deprep(ab)
   print('Saving...')
   pathfin = f'{path}/{name}'
   os.mkdir(pathfin)
   sf.write(pathfin+'/AB.wav', abwv, sr)
-  sf.write(pathfin+'/A.wav', awv, sr)
+  # sf.write(pathfin+'/A.wav', awv, sr)
   print('Saved WAV!')
   IPython.display.display(IPython.display.Audio(np.squeeze(abwv), rate=sr))
-  IPython.display.display(IPython.display.Audio(np.squeeze(awv), rate=sr))
-  if show:
-    fig, axs = plt.subplots(ncols=2)
-    axs[0].imshow(np.flip(a, -2), cmap=None)
-    axs[0].axis('off')
-    axs[0].set_title('Source')
-    axs[1].imshow(np.flip(ab, -2), cmap=None)
-    axs[1].axis('off')
-    axs[1].set_title('Generated')
-    plt.show()
+  # IPython.display.display(IPython.display.Audio(np.squeeze(awv), rate=sr))
+  # if show:
+  #   fig, axs = plt.subplots(ncols=2)
+  #   axs[0].imshow(np.flip(a, -2), cmap=None)
+  #   axs[0].axis('off')
+  #   axs[0].set_title('Source')
+  #   axs[1].imshow(np.flip(ab, -2), cmap=None)
+  #   axs[1].axis('off')
+  #   axs[1].set_title('Generated')
+  #   plt.show()
   return abwv
 
 model_path = "./MELGANVC-0.5553046-0.5153603-0.1086449"
@@ -783,6 +783,7 @@ def voice_conversion(target):
 
     song_length1 = librosa.get_duration(filename='./voice_conversion_result/voice_conversion_result_1/AB.wav')
     #song_length2 = get_duration("soundtrack1-vocals.wav")
+    print(song_length1)
     org_song_length = librosa.get_duration(filename="./output/soundtrack1/vocals.wav")
 
     # (samplerate,smp)=load_wav("./voice_conversion_result/voice_conversion_result_1/AB.wav")
