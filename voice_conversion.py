@@ -67,7 +67,7 @@ import heapq
 from torchaudio.transforms import MelScale, Spectrogram
 
 
-torch.set_default_tensor_type('torch.cuda.FloatTensor')
+# torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
 specobj = Spectrogram(n_fft=6*hop, win_length=6*hop, hop_length=hop, pad=0, power=2, normalized=True)
 specfunc = specobj.forward
